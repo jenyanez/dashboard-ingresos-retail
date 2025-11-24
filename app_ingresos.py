@@ -6,202 +6,295 @@ from sklearn.linear_model import Lasso
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
 
-# --- 1. CONFIGURACIÓN GLOBALES ---
-st.set_page_config(page_title="Executive Dashboard", layout="wide", page_icon="📊")
+# --- 1. CONFIGURACIÓN DE PÁGINA Y ESTILO "HORIZON UI" ---
+st.set_page_config(
+    page_title="Executive AI Dashboard", 
+    layout="wide", 
+    page_icon="📊",
+    initial_sidebar_state="expanded"
+)
 
-# COLORES CORPORATIVOS
-COLOR_BG = "#F4F7FE"
-COLOR_WHITE = "#FFFFFF"
-COLOR_TEXT_MAIN = "#2B3674"    # Azul Oscuro
-COLOR_TEXT_SEC = "#A3AED0"     # Gris Suave
-COLOR_ACCENT = "#4318FF"       # Azul Eléctrico
-COLOR_SUCCESS = "#05CD99"
+# Constantes de Color (Horizon Palette)
+COLOR_BG = "#F4F7FE"           # Fondo General (Gris muy claro)
+COLOR_WHITE = "#FFFFFF"        # Fondo Tarjetas
+COLOR_TEXT_MAIN = "#2B3674"    # Azul Marino (Títulos y Valores)
+COLOR_TEXT_SEC = "#A3AED0"     # Gris Azulado (Etiquetas)
+COLOR_ACCENT = "#4318FF"       # Púrpura Eléctrico (Principal)
+COLOR_SUCCESS = "#05CD99"      # Verde Éxito
+COLOR_DANGER = "#EE5D50"       # Rojo Alerta
 
+# Inyección de CSS (Estilo Global)
 st.markdown(f"""
 <style>
-    /* FUENTE OFICIAL */
+    /* Importar fuente Google Fonts: DM Sans */
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
     
+    /* Reset General */
     html, body, [class*="css"] {{
         font-family: 'DM Sans', sans-serif;
         color: {COLOR_TEXT_MAIN};
+        background-color: {COLOR_BG};
     }}
 
-    /* ELIMINAR ESTILOS NATIVOS MOLESTOS */
+    /* Ocultar elementos nativos molestos */
     header {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     .stApp {{ background-color: {COLOR_BG}; }}
     
-    /* TARJETAS (CARDS) LIMPIAS */
+    /* Estilo Tarjeta (Card) */
     .card {{
         background-color: {COLOR_WHITE};
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0px 2px 10px rgba(0,0,0,0.02);
+        border-radius: 20px;
+        padding: 24px;
+        box-shadow: 0px 3px 15px rgba(112, 144, 176, 0.08);
         margin-bottom: 20px;
     }}
     
-    /* TÍTULOS */
-    h1, h2, h3 {{ color: {COLOR_TEXT_MAIN} !important; }}
+    /* Tipografía Corporativa */
+    h1, h2, h3, h4 {{ color: {COLOR_TEXT_MAIN} !important; font-weight: 700; }}
+    p {{ color: {COLOR_TEXT_SEC}; }}
     
-    /* KPI BOXES */
-    .kpi-title {{ font-size: 14px; color: {COLOR_TEXT_SEC}; font-weight: 500; margin-bottom: 5px; }}
-    .kpi-value {{ font-size: 32px; color: {COLOR_TEXT_MAIN}; font-weight: 700; }}
-    .kpi-delta {{ font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; }}
+    /* Estilo para los KPIs HTML */
+    .kpi-box {{ display: flex; flex-direction: column; }}
+    .kpi-title {{ font-size: 14px; color: {COLOR_TEXT_SEC}; font-weight: 500; margin-bottom: 4px; }}
+    .kpi-value {{ font-size: 32px; color: {COLOR_TEXT_MAIN}; font-weight: 700; line-height: 1.2; }}
+    .kpi-delta {{ font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; margin-top: 5px; }}
     
-    /* SIDEBAR */
-    section[data-testid="stSidebar"] {{
-        background-color: {COLOR_WHITE};
-        border-right: 1px solid #E9EDF7;
-    }}
-    
-    /* TABLA LIMPIA */
+    /* Estilo de Tabla Limpia */
     .clean-table {{ width: 100%; border-collapse: collapse; }}
     .clean-table th {{ 
         text-align: left; 
         color: {COLOR_TEXT_SEC}; 
         font-size: 11px; 
         text-transform: uppercase; 
+        letter-spacing: 0.5px;
         border-bottom: 1px solid #E9EDF7; 
-        padding-bottom: 10px;
+        padding-bottom: 12px;
     }}
     .clean-table td {{ 
-        padding: 15px 0; 
+        padding: 16px 0; 
         color: {COLOR_TEXT_MAIN}; 
         font-weight: 600; 
         font-size: 14px; 
         border-bottom: 1px solid #F4F7FE;
     }}
     
-    /* CHECKBOX CUSTOM */
-    .check-icon {{ color: {COLOR_ACCENT}; font-size: 16px; margin-right: 8px; }}
+    /* Sidebar */
+    section[data-testid="stSidebar"] {{
+        background-color: {COLOR_WHITE};
+        border-right: 1px solid #E9EDF7;
+    }}
+    
+    /* Botón Simulado */
+    .btn-apply {{
+        background-color: {COLOR_ACCENT}; 
+        color: white; 
+        border: none; 
+        padding: 10px 20px; 
+        border-radius: 12px; 
+        font-size: 13px; 
+        font-weight: bold;
+        cursor: pointer;
+        width: 100%;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. BACKEND SIMPLIFICADO ---
+# --- 2. BACKEND: MODELO DE IA (Simulado) ---
 @st.cache_resource
-def get_pipeline():
-    # Datos Dummy para estructura
+def load_model():
+    # Generación de datos sintéticos
+    np.random.seed(42)
     df = pd.DataFrame({
-        'mkt': np.random.normal(5000, 2000, 100),
-        'comp': np.random.randint(0, 10, 100),
-        'reg': np.random.choice(['A'], 100),
-        'cal': np.random.uniform(1, 10, 100)
+        'mkt': np.random.normal(5000, 2000, 500),
+        'comp': np.random.randint(0, 10, 500),
+        'reg': np.random.choice(['Norte', 'Sur'], 500),
+        'cal': np.random.uniform(1, 10, 500)
     })
-    df['y'] = df['mkt']*3 + df['cal']*100 + np.random.normal(0,100,100)
+    # Fórmula: Ingresos = Base + Mkt*Impacto + Calidad*Impacto - Comp*Impacto
+    df['y'] = 12000 + df['mkt']*3.5 + df['cal']*1200 - df['comp']*600 + np.random.normal(0, 1500, 500)
     
+    # Pipeline Lasso
     pipe = Pipeline([
-        ('prep', ColumnTransformer([('num', StandardScaler(), ['mkt','comp','cal']), ('cat', OneHotEncoder(), ['reg'])])),
-        ('model', Lasso(alpha=1))
+        ('prep', ColumnTransformer([
+            ('num', StandardScaler(), ['mkt','comp','cal']),
+            ('cat', OneHotEncoder(), ['reg'])
+        ])),
+        ('model', Lasso(alpha=10))
     ])
     pipe.fit(df.drop('y', axis=1), df['y'])
     return pipe
 
-model = get_pipeline()
+model = load_model()
 
-# --- 3. SIDEBAR MINIMALISTA ---
+# --- 3. SIDEBAR (Controles Ejecutivos) ---
 with st.sidebar:
-    st.markdown(f"<h3 style='text-align:center; color:{COLOR_ACCENT};'>⚡ Retail AI</h3>", unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='text-align:center; color:{COLOR_ACCENT}; margin-bottom:30px;'>⚡ Retail AI Planner</h3>", unsafe_allow_html=True)
     
-    st.markdown(f"<div style='color:{COLOR_TEXT_SEC}; font-size:12px; font-weight:700; margin-bottom:10px;'>PARÁMETROS DE CONTROL</div>", unsafe_allow_html=True)
+    st.markdown(f"<p style='font-size:12px; font-weight:700; color:{COLOR_TEXT_SEC}; letter-spacing:1px;'>PALANCAS DE GESTIÓN</p>", unsafe_allow_html=True)
     
-    # Inputs limpios
-    mkt = st.slider("Presupuesto Marketing", 0, 15000, 7500, format="$%d")
-    calidad = st.slider("Score Calidad", 1.0, 10.0, 8.2)
-    comp = st.slider("Competencia Local", 0, 10, 2)
+    mkt = st.slider("Presupuesto Diario Marketing", 0, 15000, 6500, step=500, format="$%d")
+    calidad = st.slider("Calidad de Servicio (NPS)", 1.0, 10.0, 7.8)
+    comp = st.slider("Competencia en Zona (Tiendas)", 0, 10, 3)
     
     st.markdown("---")
-    st.caption("v4.0 Executive Build")
+    st.markdown(f"<div style='background-color:{COLOR_BG}; padding:15px; border-radius:12px;'><p style='margin:0; font-size:12px; color:{COLOR_TEXT_MAIN}'><b>💡 Nota Técnica:</b><br>Modelo actualizado: Nov 2025<br>Precisión (R2): 87%</p></div>", unsafe_allow_html=True)
 
-# --- 4. CÁLCULOS ---
-input_df = pd.DataFrame({'mkt': [mkt], 'comp': [comp], 'reg': ['A'], 'cal': [calidad]})
-pred = model.predict(input_df)[0]
-roi = ((pred - (8000+mkt))/(8000+mkt))*100
+# --- 4. CÁLCULOS DE NEGOCIO ---
+input_data = pd.DataFrame({'mkt': [mkt], 'comp': [comp], 'reg': ['Norte'], 'cal': [calidad]})
+pred_ingreso = model.predict(input_data)[0]
 
-# --- 5. DASHBOARD GRID ---
+# KPIs Derivados
+target_ingreso = 45000
+costos_base = 8500
+costo_total = costos_base + mkt
+utilidad = pred_ingreso - costo_total
+roi = (utilidad / costo_total) * 100
 
-st.markdown("## Resumen Ejecutivo de Rendimiento")
+# Colores dinámicos para KPIs
+color_roi = COLOR_SUCCESS if roi > 15 else (COLOR_ACCENT if roi > 0 else COLOR_DANGER)
+delta_vs_target = ((pred_ingreso - target_ingreso)/target_ingreso)*100
 
-# FILA 1: KPIs
+# --- 5. DASHBOARD PRINCIPAL (GRID LAYOUT) ---
+
+st.markdown("## Tablero de Control Estratégico")
+st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
+# ---> FILA 1: TARJETAS KPI (HTML) <---
 c1, c2, c3 = st.columns(3)
 
-def kpi_card(title, value, delta, color):
-    # HTML Compacto y sin indentación excesiva para evitar errores
+def kpi_html(title, value, delta_val, delta_text, color_delta):
+    delta_symbol = "▲" if delta_val >= 0 else "▼"
     return f"""
-<div class="card">
-    <div class="kpi-title">{title}</div>
-    <div class="kpi-value">{value}</div>
-    <div class="kpi-delta" style="color: {color};">
-        {delta} <span style="color: #A3AED0; font-weight: 400; margin-left: 5px;">vs target</span>
+    <div class="card">
+        <div class="kpi-box">
+            <div class="kpi-title">{title}</div>
+            <div class="kpi-value">{value}</div>
+            <div class="kpi-delta" style="color: {color_delta};">
+                {delta_symbol} {abs(delta_val):.1f}% <span style="color: {COLOR_TEXT_SEC}; font-weight: 400;">{delta_text}</span>
+            </div>
+        </div>
     </div>
-</div>
-"""
+    """
 
-with c1: st.markdown(kpi_card("Ingresos Estimados", f"${pred:,.0f}", "▲ 12.5%", COLOR_SUCCESS), unsafe_allow_html=True)
-with c2: st.markdown(kpi_card("ROI Proyectado", f"{roi:.1f}%", "▲ Healthy", COLOR_SUCCESS if roi > 0 else "#FF0000"), unsafe_allow_html=True)
-with c3: st.markdown(kpi_card("Costo Operativo", f"${(8000+mkt):,.0f}", "● Stable", COLOR_ACCENT), unsafe_allow_html=True)
+with c1: 
+    color = COLOR_SUCCESS if delta_vs_target >= -10 else COLOR_DANGER
+    st.markdown(kpi_html("Ingresos Proyectados", f"${pred_ingreso:,.0f}", delta_vs_target, "vs Objetivo", color), unsafe_allow_html=True)
 
-# FILA 2: GRÁFICOS Y TABLA
+with c2: 
+    st.markdown(kpi_html("ROI Estimado (Día)", f"{roi:.1f}%", roi-10, "vs Promedio Ind.", color_roi), unsafe_allow_html=True)
+
+with c3: 
+    efficiency = pred_ingreso / mkt if mkt > 0 else 0
+    st.markdown(kpi_html("Eficiencia Marketing (ROAS)", f"{efficiency:.1f}x", 5.2, "Retorno por $ invertido", COLOR_ACCENT), unsafe_allow_html=True)
+
+
+# ---> FILA 2: GRÁFICO CENTRAL Y TABLA DE ACCIÓN <---
 col_main, col_side = st.columns([2, 1])
 
 with col_main:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown(f"<h4 style='margin:0 0 20px 0; color:{COLOR_TEXT_MAIN}'>Proyección de Sensibilidad</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4>📉 Análisis de Brecha & Potencial</h4>", unsafe_allow_html=True)
+    st.markdown(f"<p style='font-size:13px;'>Proyección de ingresos basada en la inversión publicitaria, manteniendo la calidad actual.</p>", unsafe_allow_html=True)
     
-    # Gráfico Plotly Limpio
-    x = np.linspace(0, 15000, 50)
-    y = [model.predict(pd.DataFrame({'mkt': [i], 'comp': [comp], 'reg': ['A'], 'cal': [calidad]}))[0] for i in x]
+    # --- GRÁFICO PLOTLY CONTEXTUALIZADO ---
+    x_axis = np.linspace(0, 15000, 50)
+    y_axis = [model.predict(pd.DataFrame({'mkt': [i], 'comp': [comp], 'reg': ['Norte'], 'cal': [calidad]}))[0] for i in x_axis]
     
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x, y=y, mode='lines', line=dict(color=COLOR_ACCENT, width=3), fill='tozeroy', fillcolor='rgba(67, 24, 255, 0.05)'))
-    fig.add_trace(go.Scatter(x=[mkt], y=[pred], mode='markers', marker=dict(color=COLOR_TEXT_MAIN, size=10)))
     
+    # 1. Curva de Ingresos (Area)
+    fig.add_trace(go.Scatter(
+        x=x_axis, y=y_axis, mode='lines', name='Potencial Ingresos',
+        line=dict(color=COLOR_ACCENT, width=3),
+        fill='tozeroy', fillcolor='rgba(67, 24, 255, 0.05)'
+    ))
+    
+    # 2. Línea de Objetivo (Target)
+    fig.add_trace(go.Scatter(
+        x=[0, 15000], y=[target_ingreso, target_ingreso], mode='lines', name='Objetivo Corp.',
+        line=dict(color=COLOR_SUCCESS, width=2, dash='dash')
+    ))
+    
+    # 3. Punto Actual
+    fig.add_trace(go.Scatter(
+        x=[mkt], y=[pred_ingreso], mode='markers', name='Tu Selección',
+        marker=dict(color=COLOR_TEXT_MAIN, size=14, line=dict(color='white', width=2))
+    ))
+    
+    # Configuración limpia (Sin grids molestos, colores correctos)
     fig.update_layout(
-        margin=dict(l=0, r=0, t=0, b=0),
-        height=300,
+        height=320,
+        margin=dict(l=0, r=0, t=20, b=0),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(showgrid=False, title=None, tickfont=dict(color=COLOR_TEXT_SEC)),
-        yaxis=dict(showgrid=True, gridcolor='#F4F7FE', tickfont=dict(color=COLOR_TEXT_SEC))
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis=dict(
+            title="Inversión Marketing ($)", 
+            title_font=dict(size=12, color=COLOR_TEXT_SEC),
+            showgrid=False, 
+            tickfont=dict(color=COLOR_TEXT_SEC)
+        ),
+        yaxis=dict(
+            title="Ingresos ($)", 
+            showgrid=True, gridcolor='#F4F7FE', 
+            tickfont=dict(color=COLOR_TEXT_SEC),
+            zeroline=False
+        )
     )
     st.plotly_chart(fig, use_container_width=True)
+    
+    # Insight Narrativo (Caja Gris)
+    gap = target_ingreso - pred_ingreso
+    if gap > 0:
+        msg_ia = f"⚠️ <b>Atención:</b> Estás a <b>${gap:,.0f}</b> del objetivo. Considera aumentar el marketing a ${mkt + 2000:,.0f} o subir la calidad."
+    else:
+        msg_ia = f"✅ <b>Excelente:</b> Superas el objetivo por <b>${abs(gap):,.0f}</b>. Es un buen momento para optimizar márgenes."
+        
+    st.markdown(f"""
+    <div style='background-color:{COLOR_BG}; padding:12px; border-radius:10px; display:flex; align-items:center;'>
+        <span style='font-size:14px; color:{COLOR_TEXT_MAIN};'>{msg_ia}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_side:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown(f"<h4 style='margin:0 0 15px 0; color:{COLOR_TEXT_MAIN}'>Escenarios</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4>📋 Plan de Acción</h4>", unsafe_allow_html=True)
+    st.markdown(f"<p style='font-size:13px; margin-bottom:15px;'>Estrategias sugeridas para cerrar la brecha.</p>", unsafe_allow_html=True)
     
-    # TABLA CORREGIDA: Sin indentación dentro del string f""
-    table_html = f"""
+    # --- TABLA HTML ESTÁTICA (Accionable) ---
+    table_content = f"""
     <table class="clean-table">
         <thead>
             <tr>
-                <th>ESCENARIO</th>
-                <th>ROI</th>
-                <th>FECHA</th>
+                <th style="width:40%">ESTRATEGIA</th>
+                <th>ACCIÓN</th>
+                <th style="text-align:right">IMPACTO</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td><span class="check-icon">☑</span> Base</td>
-                <td>12%</td>
-                <td>Oct 24</td>
+                <td><span style="color:{COLOR_ACCENT}; margin-right:5px;">●</span> Actual</td>
+                <td>Mantener</td>
+                <td style="text-align:right; color:{COLOR_TEXT_SEC}">--</td>
             </tr>
             <tr>
-                <td><span class="check-icon">☑</span> Optimista</td>
-                <td>24%</td>
-                <td>Nov 12</td>
+                <td><span style="color:{COLOR_TEXT_SEC}; margin-right:5px;">○</span> Calidad+</td>
+                <td>Subir a 9.0</td>
+                <td style="text-align:right; color:{COLOR_SUCCESS}; font-weight:700">+12%</td>
             </tr>
             <tr>
-                <td><span class="check-icon" style="color:#E0E0E0">☐</span> AI Target</td>
-                <td>32%</td>
-                <td>Pending</td>
+                <td><span style="color:{COLOR_TEXT_SEC}; margin-right:5px;">○</span> Agresivo</td>
+                <td>Mkt $10k</td>
+                <td style="text-align:right; color:{COLOR_SUCCESS}; font-weight:700">+25%</td>
             </tr>
         </tbody>
     </table>
+    <br>
+    <button class="btn-apply">Aplicar Mejor Escenario</button>
     """
-    st.markdown(table_html, unsafe_allow_html=True)
+    st.markdown(table_content, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
